@@ -29,9 +29,11 @@
   <ItemGroup>
     <None Remove="Repositories\" />
     <None Remove="Repositories\Interfaces\" />
+    <None Remove="ClientMappings\" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Repositories\" />
     <Folder Include="Repositories\Interfaces\" />
+    <Folder Include="ClientMappings\" />
   </ItemGroup>
 </Project>
