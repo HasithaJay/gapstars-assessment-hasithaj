@@ -5,6 +5,12 @@
 @using Chinook.ClientModels
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims;
+@using Chinook.ClientMappings;
+@using Chinook.Repositories.Interfaces;
+@inject IArtistRepository _artistRepository;
+@inject ITrackRepository _trackRepository;
+@inject IPlaylistRepository _playlistRepository;
+@inject IUserPlaylistRepository _userplaylistRepository;
 
 @if (!string.IsNullOrWhiteSpace(InfoMessage))
 {
@@ -25,15 +31,15 @@
 else
 {
     <h1>@Artist.Name</h1>
-        <table class="table table-striped table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>Album title</th>
-                    <th>Track name</th>
-                    <th></th>
+    <table class="table table-striped table-hover table-sm">
+        <thead>
+            <tr>
+                <th>Album title</th>
+                <th>Track name</th>
+                <th></th>
             </tr>
-            </thead>
-            <tbody>
+        </thead>
+        <tbody>
             @foreach (var track in Tracks)
             {
                 <tr>
@@ -52,8 +58,8 @@ else
                     </td>
                 </tr>
             }
-            </tbody>
-        </table>
+        </tbody>
+    </table>
 
 }
 
@@ -62,7 +68,7 @@ else
     [CascadingParameter] private Task<AuthenticationState> authenticationState { get; set; }
     [Inject] IDbContextFactory<ChinookContext> DbFactory { get; set; }
     private Modal PlaylistDialog { get; set; }
-
+    private string NewPlaylistName { get; set; }
     private Artist Artist;
     private List<PlaylistTrack> Tracks;
     private DbContext DbContext;
@@ -76,18 +82,8 @@ else
         CurrentUserId = await GetUserId();
         var DbContext = await DbFactory.CreateDbContextAsync();
 
-        Artist = DbContext.Artists.SingleOrDefault(a => a.ArtistId == ArtistId);
-
-        Tracks = DbContext.Tracks.Where(a => a.Album.ArtistId == ArtistId)
-            .Include(a => a.Album)
-            .Select(t => new PlaylistTrack()
-                {
-                    AlbumTitle = (t.Album == null ? "-" : t.Album.Title),
-                    TrackId = t.TrackId,
-                    TrackName = t.Name,
-                    IsFavorite = t.Playlists.Where(p => p.UserPlaylists.Any(up => up.UserId == CurrentUserId && up.Playlist.Name == "Favorites")).Any()
-                })
-            .ToList();
+        Artist = _artistRepository.GetArtistById(ArtistId).SingleOrDefault();
+        Tracks = PlaylistTrackMapping.Map(_trackRepository.GetTracksByArtistId(ArtistId), CurrentUserId);
     }
 
     private async Task<string> GetUserId()
@@ -99,12 +95,44 @@ else
 
     private void FavoriteTrack(long trackId)
     {
+        AddToFavorites(trackId);
         var track = Tracks.FirstOrDefault(t => t.TrackId == trackId);
         InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist Favorites.";
     }
 
+    private void AddToFavorites(long trackId)
+    {
+        var track = _trackRepository.GetTrackById(trackId);
+        var favoritePlaylist = _playlistRepository.GetFavoritePlaylist(CurrentUserId).FirstOrDefault();
+
+        if (favoritePlaylist is not null)
+        {
+            AddToFavorites(favoritePlaylist, track);
+        }
+        else
+        {
+            CreateFavoritePlaylist(track);
+        }
+    }
+
+    private void AddToFavorites(Models.Playlist favoritePlaylist, Models.Track track)
+    {
+        _playlistRepository.AddToFavorites(CurrentUserId, track);
+    }
+
+    private void CreateFavoritePlaylist(Track track)
+    {
+        Random random = new Random();
+        long playlistId = random.NextInt64();
+
+        UserPlaylist userPlaylist = UserPlaylistMapping.Map(CurrentUserId, playlistId);
+        _userplaylistRepository.AddNewUserPlaylist(userPlaylist, track);
+    }
+
     private void UnfavoriteTrack(long trackId)
     {
+        var trackToRemove = _trackRepository.GetTrackById(trackId);
+        _playlistRepository.RemoveFromFavorites(trackToRemove, CurrentUserId);
         var track = Tracks.FirstOrDefault(t => t.TrackId == trackId);
         InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist Favorites.";
     }
@@ -118,6 +146,9 @@ else
 
     private void AddTrackToPlaylist()
     {
+        var track = _trackRepository.GetTrackById(SelectedTrack.TrackId);
+        _playlistRepository.CheckForExistingPlaylistsAndAdd(CurrentUserId, NewPlaylistName, track);
+
         CloseInfoMessage();
         InfoMessage = $"Track {Artist.Name} - {SelectedTrack.AlbumTitle} - {SelectedTrack.TrackName} added to playlist {{playlist name}}.";
         PlaylistDialog.Close();
@@ -153,7 +184,7 @@ else
         </div>
         <div class="form-group mb-2">
             <label for="NewPlaylist">Create new playlist</label>
-            <input type="text" id="NewPlaylist" class="form-control" placeholder="Name for the new playlist">
+            <input type="text" id="NewPlaylist" class="form-control" @bind-value="NewPlaylistName" placeholder="Name for the new playlist">
         </div>
     </Body>
     <Footer>

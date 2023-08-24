@@ -26,4 +26,14 @@
     <PackageReference Include="System.Reactive.Linq" Version="6.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Repositories\" />
+    <None Remove="Repositories\Interfaces\" />
+    <None Remove="ClientMappings\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Repositories\" />
+    <Folder Include="Repositories\Interfaces\" />
+    <Folder Include="ClientMappings\" />
+  </ItemGroup>
 </Project>
