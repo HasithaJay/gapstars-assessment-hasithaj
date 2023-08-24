@@ -7,6 +7,9 @@
 @using Chinook.ClientMappings;
 @using Chinook.Repositories.Interfaces;
 @inject IPlaylistRepository _playlistRepository;
+@inject ITrackRepository _tracksRepository;
+@inject IUserPlaylistRepository _userplaylistRepository;
+
 <h1>Playlist <strong>@Playlist.Name</strong></h1>
 
 @if (!string.IsNullOrWhiteSpace(InfoMessage))
@@ -90,12 +93,49 @@ else
 
     private void FavoriteTrack(long trackId)
     {
+        AddToFavorites(trackId);
         var track = Playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
         InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist Favorites.";
     }
 
+    private void AddToFavorites(long trackId)
+    {
+        var track = _tracksRepository.GetTrackById(trackId);
+        var favoritePlaylist = _playlistRepository.GetFavoritePlaylist(CurrentUserId).FirstOrDefault();
+
+        if (favoritePlaylist is not null)
+        {
+            AddToFavorites(favoritePlaylist, track);
+        }
+        else
+        {
+            CreateFavoritePlaylist(track);
+        }
+    }
+
+    private void AddToFavorites(Models.Playlist favoritePlaylist, Models.Track track)
+    {
+        _playlistRepository.AddToFavorites(CurrentUserId, track);
+    }
+
+    private void CreateFavoritePlaylist(Track track)
+    {
+        Random random = new Random();
+        long playlistId = random.NextInt64();
+
+        UserPlaylist userPlaylist = UserPlaylistMapping.Map(CurrentUserId, playlistId);
+        _userplaylistRepository.AddNewUserPlaylist(userPlaylist, track);
+    }
+
+    private void AddTrackToPlaylist(UserPlaylist userPlaylist, Track track)
+    {
+        _userplaylistRepository.AddTrackToPlaylist(userPlaylist, track);
+    }
+
     private void UnfavoriteTrack(long trackId)
     {
+        var trackToRemove = _tracksRepository.GetTrackById(trackId);
+        _playlistRepository.RemoveFromFavorites(trackToRemove, CurrentUserId);
         var track = Playlist.Tracks.FirstOrDefault(t => t.TrackId == trackId);
         InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist Favorites.";
     }
@@ -103,7 +143,11 @@ else
     private void RemoveTrack(long trackId)
     {
         CloseInfoMessage();
+        var track = _tracksRepository.GetTrackById(trackId);
+        var playlistid = _playlistRepository.GetPlaylistById(PlaylistId).FirstOrDefault();
+        _playlistRepository.RemoveFromPlaylist(PlaylistId, track);
 
+        OnInitializedAsync();
     }
 
     private void CloseInfoMessage()

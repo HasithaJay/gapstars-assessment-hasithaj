@@ -25,33 +25,33 @@ namespace Chinook.Repositories
                 .Where(pl => pl.PlaylistId == playlistId);
         }
 
-        public IQueryable<Models.Playlist> GetFavouritePlaylist(string currentUserId)
+        public IQueryable<Models.Playlist> GetFavoritePlaylist(string currentUserId)
         {
             return _context.Playlists
                 .Where(p => p.UserPlaylists.Any(up => up.UserId == currentUserId && up.Playlist.Name == "Favorites"));
         }
 
-        public void AddToFavourites(string currentUserId, Track track)
+        public void AddToFavorites(string currentUserId, Track track)
         {
-            var favouritePlayList = _context.Playlists
+            var favoritePlayList = _context.Playlists
                  .Include(a => a.Tracks).ThenInclude(a => a.Album).ThenInclude(a => a.Artist)
                 .Where(p => p.UserPlaylists.Any(up => up.UserId == currentUserId && up.Playlist.Name == "Favorites"))
                 .FirstOrDefault();
 
-            favouritePlayList.Tracks.Add(track);
-            _context.Update(favouritePlayList);
+            favoritePlayList.Tracks.Add(track);
+            _context.Update(favoritePlayList);
             _context.SaveChanges();
         }
 
-        public void RemoveFromFavourites(Track track, string CurrentUserId)
+        public void RemoveFromFavorites(Track track, string CurrentUserId)
         {
-            var favouritePlayList = _context.Playlists
+            var favoritePlayList = _context.Playlists
                  .Include(a => a.Tracks).ThenInclude(a => a.Album).ThenInclude(a => a.Artist)
                 .Where(p => p.UserPlaylists.Any(up => up.UserId == CurrentUserId && up.Playlist.Name == "Favorites"))
                 .FirstOrDefault();
 
-            favouritePlayList.Tracks.Remove(track);
-            _context.Update(favouritePlayList);
+            favoritePlayList.Tracks.Remove(track);
+            _context.Update(favoritePlayList);
             _context.SaveChanges();
         }
 
