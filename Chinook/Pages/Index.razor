@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Chinook.Repositories.Interfaces;
 @inject IArtistRepository _artistRepository;
+
 <PageTitle>Index</PageTitle>
 
 <h1>Artists</h1>
@@ -15,6 +16,13 @@
 }
 else
 {
+    <EditForm EditContext=Context>
+        <div class="input-group">
+            <InputText placeholder="Artist Name" @bind-Value="SearchString" class="form-control" />
+            <button class="btn btn-primary" @onclick="OnSearchButtonClick" style="margin-left: 20px;"> Search </button>
+        </div>
+    </EditForm>
+
     <table class="table table-striped table-hover table-sm">
         <thead>
             <tr>
@@ -35,13 +43,19 @@ else
 }
 
 @code {
+    private List<Artist> originalArtists;
     private List<Artist> Artists;
+    private EditContext Context;
+    public string SearchString { get; set; } = "";
+
     [Inject] IDbContextFactory<ChinookContext> DbFactory { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         await InvokeAsync(StateHasChanged);
         Artists = await GetArtists();
+        Context = new EditContext(SearchString);
+        originalArtists = Artists;
     }
 
     public async Task<List<Artist>> GetArtists()
@@ -52,5 +66,19 @@ else
     public async Task<List<Album>> GetAlbumsForArtist(int artistId)
     {
         return _artistRepository.GetAlbumsForArtist(artistId).ToList();
+    }
+
+    private async Task OnSearchButtonClick()
+    {
+        if (!string.IsNullOrEmpty(SearchString))
+        {
+            Artists = originalArtists.Where(s => s.Name.ToLower().Contains(SearchString.ToLower())).ToList();
+        }
+        else
+        {
+            Artists = await GetArtists();
+            originalArtists = Artists;
+        }
+        this.StateHasChanged();
     }
 }
